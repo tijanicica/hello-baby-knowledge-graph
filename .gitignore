@@ -1,5 +1,6 @@
 # Baza "Halo beba" (nije javna)
 data/
+data_ner/
 
 # Rezultati sadrže tekst dijaloga (replike, entiteti, citati u izveštaju) -> ne objavljujemo
 # Grafici sadrže samo zbirne brojke, pa njih čuvamo
