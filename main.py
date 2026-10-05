@@ -11,8 +11,8 @@ konzistentnost i radi eksplorativnu analizu (EDA):
     6. struktura razgovora (kako roditelji opisuju, kako sestre pitaju/savetuju)
     7. preliminarna ko-okurencija simptom-intervencija (uvod u Fazu 2)
 
-Svi rezultati (tabele, grafici, tekstualni izveštaj) se čuvaju u folderu
-rezultati_faza1/.
+Tekstualni izveštaj (izvestaj.txt) i tri grafika (tipovi entiteta, emocije,
+teme) se čuvaju u folderu rezultati_faza1/.
 """
 import json
 import re
@@ -178,7 +178,6 @@ def text_similarity(other, did):
 check["identicne_replike_sazeci"] = [same_turn_share(sum_turns, d) for d in check.index]
 check["slicnost_sazeci"] = [text_similarity(sum_turns, d) for d in check.index]
 check["slicnost_emocije"] = [text_similarity(emo_turns, d) for d in check.index]
-check.to_csv(OUT / "konzistentnost_izvora.csv")
 
 diff_emo = check[check["emocije"] != check["entiteti"]]
 diff_en = check[check["engleski"] != check["entiteti"]]
@@ -243,14 +242,6 @@ log("Ko završava razgovor:", dialogs["last_speaker"].value_counts().to_dict())
 same_speaker = (turns["speaker"] == turns.groupby("dialog_id")["speaker"].shift()).sum()
 log(f"Uzastopne replike istog govornika: {same_speaker} (razgovor je gotovo strogo naizmeničan)")
 
-fig, ax = plt.subplots(1, 2, figsize=(11, 4))
-dialogs["n_turns"].plot.hist(bins=20, ax=ax[0], color="#4C72B0", edgecolor="white")
-ax[0].set(title="Broj replika po dijalogu", xlabel="replike", ylabel="broj dijaloga")
-turns.boxplot(column="n_words", by="speaker", ax=ax[1], showfliers=False)
-ax[1].set(title="Broj reči po replici", xlabel="", ylabel="reči")
-fig.suptitle("")
-save_fig("01_duzine.png")
-
 # ---------------------------------------------------------------------------
 # 3. Anotacije entiteta
 # ---------------------------------------------------------------------------
@@ -268,7 +259,6 @@ label_stats = pd.DataFrame({
 }).sort_values("broj", ascending=False)
 label_stats["engleski_broj"] = en_entities["label"].value_counts()
 log(label_stats.to_string())
-label_stats.to_csv(OUT / "entiteti_po_tipu.csv")
 
 key_labels = ["SYMPTOM", "INTERVENTION", "TREATMENT", "EVENT", "OUTCOME", "BEHAVIOR"]
 for label in key_labels:
@@ -286,10 +276,9 @@ span_len = entities["span"].str.split().str.len()
 log("\nDužina raspona (broj reči) po tipu - medijana / max:")
 log(span_len.groupby(entities["label"]).agg(["median", "max"]).loc[key_labels].to_string())
 
-entities.to_csv(OUT / "entiteti.csv", index=False)
-
 label_stats["broj"].sort_values().plot.barh(figsize=(7, 8), color="#4C72B0")
 plt.title("Broj anotacija po tipu entiteta")
+plt.ylabel("")
 save_fig("02_tipovi_entiteta.png")
 
 # ---------------------------------------------------------------------------
@@ -314,10 +303,10 @@ unc_emo = set(emotions.loc[emotions["label"] == "UNCERTAIN", ["dialog_id", "turn
 unc_ent = set(entities.loc[entities["label"] == "UNCERTAINTY", ["dialog_id", "turn_idx"]].itertuples(index=False))
 log(f"\nReplike sa UNCERTAIN (emocije): {len(unc_emo)}, sa UNCERTAINTY (entiteti): {len(unc_ent)}, "
     f"presek: {len(unc_emo & unc_ent)}")
-emotions.to_csv(OUT / "emocije.csv", index=False)
 
 emotions["label"].value_counts().sort_values().plot.barh(figsize=(7, 4), color="#DD8452")
 plt.title("Broj anotacija po emociji")
+plt.ylabel("")
 save_fig("03_emocije.png")
 
 # ---------------------------------------------------------------------------
@@ -357,10 +346,9 @@ log("\nDijalozi svrstani u 'ostalo' (proveriti ručno):")
 for did, row in dialogs[dialogs["topics"].apply(lambda t: t == ['ostalo'])].iterrows():
     log(f"  {did}: {'; '.join(row['key_words'])}")
 
-log("\nSvih 150 razloga poziva (key_words) je sačuvano u dijalozi.csv")
-
 topic_counts.sort_values().plot.barh(figsize=(8, 5), color="#55A868")
 plt.title("Broj dijaloga po temi")
+plt.ylabel("")
 save_fig("04_teme.png")
 
 # ---------------------------------------------------------------------------
@@ -414,15 +402,6 @@ advice = iv[(iv["uloga"].str.contains("savet")) & (iv["rel_pos"] > 2 / 3)]
 for (did, tidx) in advice[["dialog_id", "turn_idx"]].drop_duplicates().head(6).itertuples(index=False):
     log(f"  [{did}] " + turns.loc[(turns['dialog_id'] == did) & (turns['turn_idx'] == tidx), 'annotated_text'].iloc[0])
 
-fig, ax = plt.subplots(figsize=(9, 4))
-for speaker, color in [("POZIVALAC", "#4C72B0"), ("SESTRA", "#DD8452")]:
-    sub = entities[entities["label"].isin(["SYMPTOM", "INTERVENTION", "TREATMENT"]) & (entities["speaker"] == speaker)]
-    ax.hist(sub["rel_pos"], bins=10, alpha=0.6, label=speaker, color=color)
-ax.set(title="SYMPTOM/INTERVENTION/TREATMENT kroz tok razgovora",
-       xlabel="relativna pozicija u razgovoru (0 = početak, 1 = kraj)", ylabel="broj raspona")
-ax.legend()
-save_fig("05_tok_razgovora.png")
-
 # ---------------------------------------------------------------------------
 # 7. Preliminarna ko-okurencija simptom - intervencija (uvod u Fazu 2)
 # ---------------------------------------------------------------------------
@@ -449,12 +428,6 @@ log(top_pairs.to_string())
 log("\nNAPOMENA: parovi su i dalje fragmentisani jer isti pojam ima mnogo oblika "
     "('temperatura', 'temperaturu', 'povišenu temperaturu'...). Lematizacija i spajanje "
     "sinonima (Faza 2/3) su neophodni pre izgradnje grafa.")
-dialog_pairs.to_csv(OUT / "kookurencija_simptom_intervencija.csv", index=False)
 
-# ---------------------------------------------------------------------------
-# Čuvanje tabela
-# ---------------------------------------------------------------------------
-dialogs.drop(columns=["topic_text"]).to_csv(OUT / "dijalozi.csv")
-turns.to_csv(OUT / "replike.csv", index=False)
 log(f"\nRezultati sačuvani u: {OUT}")
 _report.close()
