@@ -1,0 +1,56 @@
+Mapiranje ručnih anotacija (150 dijaloga, 8182 pominjanja)
+
+tip                    SIMPT  INTERV   TERAP   UZROK   ISHOD   A_DIJ   A_POM     ODB
+BEHAVIOR                 382                                                     598
+SYMPTOM                  869                                                        
+TIME                                                                     753        
+INTERVENTION                     597                                                
+UNCERTAINTY                                                              464        
+FEEDING                   90      14                                             336
+CHARACTERISTIC                                                           373        
+ENVIRONMENT                        7              32                             317
+DURATION                                                                 305        
+EVENT                                            304                                
+AGE                                                              293                
+FREQUENCY                                                                290        
+BODY_PART                                                                265        
+OUTCOME                                                  143                      85
+QUANTITY                                                                 220        
+ABNORMALITY                                                                      171
+FOOD                                              15                     151        
+TEST                             136                                                
+DEGREE                                                                   135        
+TREATMENT                                128                                        
+MEDICAL_DEVICE                                                           110        
+CHILD_TRAIT               27                                      81                
+STOOL                     48                                                      52
+HYDRATION                 14       1                                              58
+URINATION                 12                                                      59
+CAREGIVER_SUPPORT                                                                 67
+KINDERGARTEN                                                      53                
+CLOTHES                                                                           50
+MOTHER_NUTRITION                                  47                                
+VACCINATION_STATUS                                 9              21                
+UKUPNO                  1442     755     128     407     143     448    3066    1793
+
+Uloga intervencija/terapija (-> tip grane):
+  INTERVENCIJA  pitanje        308
+  INTERVENCIJA  pokušano       385
+  INTERVENCIJA  pominjanje       7
+  INTERVENCIJA  preporuka       55
+  TERAPIJA      pitanje         49
+  TERAPIJA      pokušano        69
+  TERAPIJA      pominjanje       2
+  TERAPIJA      preporuka        8
+
+Pominjanja čvorova znanja u pitanjima sestre: 1015
+
+Evaluacija na nivou klasa: ručne anotacije vs BERTić, oba kroz ista pravila (30 test dijaloga)
+klasa           gold   ner       P       R      F1    P_bl    R_bl   F1_bl
+SIMPTOM          312   359   0.490   0.564   0.525   0.741   0.824   0.780
+INTERVENCIJA     179   226   0.310   0.391   0.346   0.637   0.760   0.693
+TERAPIJA          34    49   0.306   0.441   0.361   0.612   0.824   0.702
+UZROK             95    98   0.337   0.347   0.342   0.520   0.537   0.528
+ISHOD             31    35   0.229   0.258   0.242   0.371   0.419   0.394
+UKUPNO           651   767   0.394   0.464   0.426   0.657   0.745   0.698
+(stroga = iste granice; blaga = preklapanje u istoj replici; obe traže istu klasu)

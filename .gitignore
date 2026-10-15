@@ -7,6 +7,8 @@ data_ner.zip
 # Grafici sadrže samo zbirne brojke, pa njih čuvamo
 rezultati_faza1/*
 !rezultati_faza1/*.png
+rezultati_mapiranje/*
+!rezultati_mapiranje/zbir_mapiranja.txt
 
 # Python
 .venv/
