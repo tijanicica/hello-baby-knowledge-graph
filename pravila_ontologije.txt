@@ -1,0 +1,269 @@
+PRAVILA ZA DODELU TIPOVA ČVOROVA I GRANA
+Graf znanja iz dijaloga "Halo beba"
+==========================================================================================
+
+Status:
+  - Pravila za čvorove (delovi 1-6) su implementirana u mapiranje.py.
+  - Pravila za grane (delovi 7-9) su dogovorena u ontologiji, ali još nisu implementirana;
+    biće deo skripte za gradnju grafa u Neo4j.
+
+Opšti princip: PRAVILA određuju KLASU čvora i TIP grane, a PODACI (koliko često se nešto
+javlja zajedno kroz dijaloge) određuju TEŽINU grane.
+
+
+==========================================================================================
+1. KLASE ČVOROVA
+==========================================================================================
+
+Čvorovi znanja (ulaze u mrežnu analizu):
+  SIMPTOM        ono što roditelj primećuje kao problem kod deteta (temperatura, osip, ne jede)
+  INTERVENCIJA   radnja koju je roditelj uradio ili sestra savetovala (kupanje, oblog, merenje)
+  TERAPIJA       lek ili preparat (sirup, kapi, supozitorija)
+  UZROK          događaj ili okolnost koja može izazvati simptom (vakcina, nova hrana, put)
+  ISHOD          rezultat neke radnje (spustila se temperatura, smirila se)
+
+Čvor dokaza (ne ulazi u mrežnu analizu):
+  DIJALOG        jedan poziv; čuva podatke o detetu i povezuje se sa svim čvorovima koje pominje
+
+Klasa PROBLEM se ne anotira. Problemi (npr. "kolike", "prehlada") izvode se kasnije iz
+zajednica u grafu (faza 4): grupa simptoma, uzroka i intervencija koji se stalno javljaju
+zajedno predstavlja jedan problem.
+
+Ostale oznake (nisu čvorovi):
+  ATRIBUT_DIJALOGA     podatak o detetu koji važi za ceo poziv -> svojstvo čvora Dijalog
+  ATRIBUT_POMINJANJA   detalj jednog konkretnog pominjanja -> svojstvo grane POMINJE
+  ODBACENO             ne ulazi u graf
+
+
+==========================================================================================
+2. FIKSNA PRAVILA (klasa ne zavisi od konteksta)
+==========================================================================================
+
+  SYMPTOM            -> SIMPTOM
+  INTERVENTION       -> INTERVENCIJA
+  TEST               -> INTERVENCIJA (podtip: provera, npr. merenje temperature)
+  TREATMENT          -> TERAPIJA
+  EVENT              -> UZROK
+  MOTHER_NUTRITION   -> UZROK (ishrana majke koja doji)
+
+  AGE                -> ATRIBUT_DIJALOGA (uzrast)
+  KINDERGARTEN       -> ATRIBUT_DIJALOGA (vrtić)
+
+  TIME, DURATION, FREQUENCY, QUANTITY, DEGREE,
+  CHARACTERISTIC, BODY_PART, UNCERTAINTY
+                     -> ATRIBUT_POMINJANJA
+  MEDICAL_DEVICE     -> ATRIBUT_POMINJANJA (sredstvo kojim se izvodi intervencija)
+
+  ABNORMALITY        -> ODBACENO (opšte reči kao "problem"; koristi se samo kao signal
+                        odstupanja za druga pravila)
+  CAREGIVER_SUPPORT  -> ODBACENO (podrška roditelju, nije medicinsko znanje)
+  CLOTHES            -> ODBACENO
+
+
+==========================================================================================
+3. KONTEKSTNA PRAVILA (klasa zavisi od rečenice u kojoj se entitet javlja)
+==========================================================================================
+
+Pojmovi koji se koriste u pravilima:
+
+  Rečenica   deo replike između dva znaka . ? ili !
+  Prozor     reči entiteta + 3 reči levo i 3 reči desno, unutar iste rečenice
+  Pitanje    rečenica koja se završava znakom ?
+
+  ODSTUPANJE (početak reči u prozoru):
+    problem, odbij, slab, manje, previše, preterano, teško, tvrd, retk, rijetk, redj, ređ,
+    zelen, sluz, krv, nemir, plač, plak, razdraž, trza, trgn, grč, zgrč, ukoč, kruć, oslab,
+    bled, bleđ, tamn, smrd, čudn, neobič, promen, povrać, bljuc, dijarej, proliv, zatvor,
+    zaosta, nervoz, uznemir, boli, bolov, bolan, bolna, bolno, muči, muka, neredov, stalno
+  NEGACIJA (cela reč u prozoru):
+    ne, nije, nisu, neće, nece, nema, nemaju, ni, nikako, nimalo
+  SAVET SESTRE: govori sestra, rečenica nije pitanje, i u rečenici postoji
+    - reč koja počinje sa: savet, preporuč, treba, trebalo, morate, možete, obavezno,
+      nemojte, izbegava
+    - ili glagol u zapovednom načinu (završava se na -ajte, -ite, -ujte, -ejte, duži od
+      4 slova), osim fraza iz razgovora: recite, kažite, izvolite, sačekajte, izvinite,
+      oprostite, slušajte, znate, imate, jeste, ste, hvala, molite, čujete
+  UZROČNA VEZA (početak reči ili fraza):
+    zbog, posle, nakon, otkad, otkako, kontakt, izazva, uzrok, reakcij, reagu, alergi,
+    smeta, prija, poveza, povezu, od kad
+    Uzročna veza postoji ako je takva reč u prozoru entiteta, ILI ako je u istoj rečenici
+    i u toj rečenici postoji simptom / stolica / ponašanje / oznaka problema.
+
+Pravila redom (prvo pravilo koje važi odlučuje):
+
+BEHAVIOR, STOOL, URINATION (ponašanje, stolica, mokrenje)
+  1. ima odstupanje                              -> SIMPTOM
+       odstupanje = reč ODSTUPANJA ili NEGACIJA u prozoru, ili u istoj rečenici postoji
+       SYMPTOM ili ABNORMALITY ("problem sa stolicom")
+       npr. "ne želi da spava", "tvrda stolica", "mnogo manje mokri"
+  2. inače                                       -> ODBACENO (opis normalnog stanja)
+       npr. "ima stolicu jednom dnevno"
+
+FEEDING, HYDRATION (ishrana, unos tečnosti)
+  1. savet sestre                                -> INTERVENCIJA
+       npr. "ponudite joj vodu češće"
+  2. ima odstupanje                              -> SIMPTOM
+       npr. "odbija da popije", "ne jede"
+  3. inače                                       -> ODBACENO
+       npr. "dojim", "poslednji podoj"
+
+CHILD_TRAIT (osobina deteta)
+  1. ima odstupanje                              -> SIMPTOM
+       npr. "apetit oslabljen", "ten bleđi"
+  2. inače                                       -> ATRIBUT_DIJALOGA
+       npr. "devojčica", "stidljiva"
+
+ENVIRONMENT (okruženje)
+  1. savet sestre                                -> INTERVENCIJA
+       npr. "presvlačite je u hladnijoj sobi"
+  2. uzročna veza                                -> UZROK
+       npr. "bio u kontaktu sa nekim ko ima boginje"
+  3. inače                                       -> ODBACENO
+       npr. "sestra", "krevetić", "igračka"
+
+FOOD (hrana)
+  1. uzročna veza                                -> UZROK
+       npr. "osip se javlja posle jaja"
+  2. inače                                       -> ATRIBUT_POMINJANJA (šta je dete jelo)
+
+VACCINATION_STATUS (vakcinacija)
+  1. uzročna veza                                -> UZROK
+       npr. "posle vakcine dobio temperaturu"
+  2. inače                                       -> ATRIBUT_DIJALOGA
+       npr. "redovno vakcinisan"
+
+OUTCOME (ishod)
+  1. u istoj replici ili u prethodne dve replike postoji INTERVENTION, TREATMENT ili TEST
+                                                 -> ISHOD
+       npr. "dala sam sirup ... i spustila se"
+  2. inače                                       -> ODBACENO (opšte stanje, nije rezultat radnje)
+       npr. "sve je u redu"
+
+
+==========================================================================================
+4. KAČENJE ATRIBUTA
+==========================================================================================
+
+ATRIBUT_DIJALOGA
+  Upisuje se kao svojstvo čvora Dijalog (jedan dijalog = jedan čvor):
+    (:Dijalog {id: 100, uzrast: "3 nedelje", vrtic: "ne", vakcinisan: "da"})
+
+ATRIBUT_POMINJANJA
+  Upisuje se kao svojstvo grane POMINJE između Dijaloga i čvora na koji se odnosi:
+    (:Dijalog)-[:POMINJE {deo_tela: "vrat", vreme: "od juče"}]->(:Simptom {naziv: "crvenilo"})
+  Na koji čvor se kači:
+  1. na najbliži čvor znanja u istoj replici (rastojanje u broju reči);
+  2. ako u replici nema čvora znanja: na poslednji čvor znanja iz prethodne replike
+     (obrazac: sestra pita "Koliko dugo ima temperaturu?", roditelj odgovara "tri dana");
+  3. ako ga nema ni tamo: atribut se ne kači i ne ulazi u graf.
+  Izuzetak: MEDICAL_DEVICE se kači na INTERVENCIJU ili TERAPIJU ako postoji, a tek
+  onda na bilo koji čvor.
+
+
+==========================================================================================
+5. SVOJSTVA SVAKOG POMINJANJA
+==========================================================================================
+
+  govornik   POZIVALAC ili SESTRA
+  replika    redni broj replike u dijalogu
+  pitanje    da li je pominjanje u rečenici koja se završava znakom ?
+             (pitanje sestre nije činjenica o detetu, npr. "Da li mokri?")
+  uloga      samo za INTERVENCIJU i TERAPIJU (vidi deo 6)
+  negirano   da li je pominjanje negirano ("nema temperaturu")
+             -> planirano, NegEx pristup, još nije implementirano
+
+
+==========================================================================================
+6. ULOGA INTERVENCIJE I TERAPIJE
+==========================================================================================
+
+  govori roditelj                         -> pokušano     ("stavili smo oblog")
+  govori sestra, rečenica je pitanje      -> pitanje      ("Da li ste probali da je okupate?")
+  govori sestra, savet sestre             -> preporuka    ("stavite joj mlak oblog")
+  govori sestra, ostalo                   -> pominjanje   (npr. prepričavanje)
+
+Uloga određuje tip grane (deo 7): pokušano -> POKUSANO_KOD, preporuka -> PREPORUCENO_KOD.
+
+
+==========================================================================================
+7. TIPOVI GRANA (planirano)
+==========================================================================================
+
+Grane između čvorova znanja nastaju iz pojavljivanja u ISTOM DIJALOGU. Pominjanja koja su
+negirana ne prave grane. Tip grane određuju klase čvorova i uloga pominjanja:
+
+POKUSANO_KOD      Intervencija/Terapija -> Simptom ili Uzrok
+  Roditelj je u dijalogu pomenuo intervenciju/terapiju (uloga: pokušano), a u istom
+  dijalogu se javlja simptom (ili uzrok).
+  "Kod temperature roditelji probaju mlak oblog."
+
+PREPORUCENO_KOD   Intervencija/Terapija -> Simptom ili Uzrok
+  Sestra je savetovala intervenciju/terapiju (uloga: preporuka), a u istom dijalogu se
+  javlja simptom. Dodatno svojstvo: uslov (npr. "ako temperatura pređe 38,5").
+  "Kod temperature sestra preporučuje sirup."
+
+UZROKUJE          Uzrok -> Simptom
+  U dijalogu se pominju i uzrok i simptom (npr. vakcina i temperatura), a ne radi se
+  samo o pitanju sestre.
+
+ISPITUJE_SE_KOD   Uzrok -> Simptom
+  Sestra pita za uzrok (pominjanje uzroka u njenom pitanju), a u dijalogu je simptom.
+  "Kod osipa sestra proverava da li je bilo nove hrane."
+  Ovo je znanje o tome kako sestra razmišlja, a ne potvrđena uzročna veza.
+
+DOVODI_DO         Intervencija/Terapija -> Ishod
+  Ishod se javlja u istoj ili u naredne dve replike posle intervencije/terapije
+  (isti uslov kao pravilo za OUTCOME u delu 3). Svojstvo: simptom na koji se odnosi.
+
+KOSIMPTOM         Simptom <-> Simptom (neusmerena)
+  Dva različita simptoma pominju se u istom dijalogu.
+
+POMINJE           Dijalog -> bilo koji čvor znanja
+  Jedna grana za svako pominjanje. Svojstva: govornik, replika, pitanje, uloga, negirano,
+  osoba (dete / majka) i svi atributi pominjanja iz dela 4.
+
+RAZLOG_POZIVA     Dijalog -> Simptom
+  Glavni simptom poziva, iz ključnih reči sažetka (summary.key_words).
+
+UKAZUJE_NA        Simptom -> Problem
+  Otpada, jer se klasa Problem ne anotira (problemi se izvode iz zajednica u fazi 4).
+
+
+==========================================================================================
+8. TEŽINA GRANA (planirano)
+==========================================================================================
+
+Svaka grana između čvorova znanja ima svojstva:
+  n_dijaloga   u koliko dijaloga se par javlja zajedno
+  dijalozi     spisak id-jeva tih dijaloga (poreklo: odakle znamo za ovu vezu)
+  tezina       jačina veze
+
+Težina se računa po uzoru na Rotmensch et al. (2017):
+  1. napravi se binarna matrica dijalog x čvor (1 = čvor se pominje u dijalogu, nije negiran);
+  2. jačina veze se meri modelom nad tom matricom (npr. logistička regresija, naivni Bajes
+     ili noisy-OR), ili jednostavnije, merom zajedničkog pojavljivanja.
+Pravila (delovi 6-7) kažu KOJA je vrsta veze, a matrica kaže KOLIKO je jaka.
+
+
+==========================================================================================
+9. NORMALIZACIJA ČVOROVA (planirano)
+==========================================================================================
+
+Različiti oblici istog pojma postaju jedan čvor:
+  "temperaturu", "temperatura", "povišena temperatura", "temperaturica"  -> Simptom "temperatura"
+Postupak: lematizacija (CLASSLA) + ručni rečnik sinonima -> kanonski naziv čvora.
+U Neo4j se koristi MERGE po (klasa, kanonski naziv), pa isti pojam iz 150 dijaloga
+postaje jedan čvor.
+
+
+==========================================================================================
+10. POZNATA OGRANIČENJA
+==========================================================================================
+
+  - Pravila su heuristike nad rečima, bez razumevanja značenja; tačnost se meri ručnom
+    proverom na 30 test dijaloga (rezultati_mapiranje/za_anotaciju.csv).
+  - Negacija kao znak odstupanja ("ne jede") može pogrešiti kada se negira sam problem
+    ("nema problema sa stolicom").
+  - Kačenje atributa na najbliži čvor može pogrešiti kada replika pominje više čvorova.
+  - Oko 28% atributa pominjanja ostaje nezakačeno (nema čvora ni u prethodnoj replici).
+  - Svi EVENT entiteti postaju UZROK, iako su neki samo vremenska sidra ("od rođenja").
